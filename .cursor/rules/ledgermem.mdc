@@ -1,0 +1,79 @@
+---
+description: LedgerMem — long-term memory rules for Cursor agents.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# LedgerMem rules
+
+You have access to LedgerMem long-term memory via the `ledgermem` MCP server. Use it as if you have a teammate who has been on this project from day one and remembers every decision.
+
+## Tools available
+
+- `memory_search(query, limit?)` — retrieves prior decisions, context, conventions
+- `memory_add(content, metadata?)` — stores a new decision, fact, or convention
+- `memory_update(memory_id, content?)` — corrects an existing memory
+- `memory_delete(memory_id)` — removes an obsolete memory
+- `memory_list(limit?, cursor?)` — paginates recent memories
+
+## Mandatory behaviors
+
+### 1. Recall before non-trivial code
+
+Before generating > 30 lines of code, or before suggesting a library/architecture choice, call `memory_search` with a query that captures the intent. Example:
+
+```
+intent: "user wants to add OAuth"
+query: "auth library decision OAuth"
+```
+
+If the search returns relevant memories, **incorporate them silently into your response**. Don't say "I checked memory" — just produce code consistent with what you found.
+
+### 2. Save accepted decisions
+
+When the user explicitly chooses one of your suggestions ("yes, go with X", "use Y instead"), call `memory_add` with:
+
+```
+content: "<one sentence summarizing the decision and why>"
+metadata: { kind: "decision", source: "cursor", scope: "<file or feature>" }
+```
+
+Examples of decisions worth saving:
+
+- Library choices ("we use Vitest, not Jest")
+- Architectural patterns ("services own all DB access; controllers stay thin")
+- Naming conventions ("kebab-case file names; camelCase functions")
+- Stack-specific gotchas ("`bun test` is broken on macOS arm with X — use `vitest` instead")
+
+**Do not save**: temporary scratch, formatting tweaks, individual variable names.
+
+### 3. Avoid asking what you already know
+
+Before asking the user a clarifying question, search memory. If memory answers it, use the answer and proceed. Only ask the user when memory is silent or contradictory.
+
+### 4. Stack consistency check
+
+Before suggesting any new dependency, search memory for `"library <category>"` (e.g., `"library validation"`, `"library http client"`). If the project has already chosen one, **use the existing choice** unless the user explicitly asks to switch.
+
+### 5. Project-scoped queries
+
+Add the project name to every query. Memory may span multiple projects:
+
+```
+search: "auth pattern <project-name>"
+```
+
+If you don't know the project name, infer it from the workspace folder name and save that as your first memory.
+
+## Anti-patterns
+
+- ❌ Don't dump memory verbatim into the chat. Synthesize.
+- ❌ Don't `memory_add` every line of generated code. Save decisions, not code.
+- ❌ Don't fabricate `memory_id`s for `update`/`delete`. Always `search` or `list` first.
+- ❌ Don't search with single-word queries. Be specific: `"user wants OAuth with GitHub provider"`.
+
+## Failure modes
+
+- If MCP server is unreachable: continue silently. Do not block on memory.
+- If search returns 0 results: proceed without context, then save a useful seed memory at the end.
+- If `LEDGERMEM_API_KEY` is missing: tell the user once per session, then proceed without memory.
