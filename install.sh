@@ -14,46 +14,59 @@ echo "✓ wrote .cursor/rules/ledgermem.mdc"
 MCP_FILE="$HOME/.cursor/mcp.json"
 mkdir -p "$(dirname "$MCP_FILE")"
 
+# Cursor's mcp.json `env` field expects literal string values; it does NOT
+# expand ${env:VAR} placeholders the way VS Code launch.json does. We must
+# substitute the values at install time. Refuse to write secrets if missing.
+if [[ -z "${LEDGERMEM_API_KEY:-}" ]] || [[ -z "${LEDGERMEM_WORKSPACE_ID:-}" ]]; then
+  echo "error: set LEDGERMEM_API_KEY and LEDGERMEM_WORKSPACE_ID before running this script."
+  echo "       export LEDGERMEM_API_KEY=lm_live_..."
+  echo "       export LEDGERMEM_WORKSPACE_ID=ws_..."
+  exit 1
+fi
+
+# Escape for safe inclusion in JSON (handles backslashes and quotes).
+json_escape() {
+  python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$1"
+}
+
+API_KEY_JSON=$(json_escape "$LEDGERMEM_API_KEY")
+WS_JSON=$(json_escape "$LEDGERMEM_WORKSPACE_ID")
+
 if [[ ! -f "$MCP_FILE" ]]; then
-  cat > "$MCP_FILE" <<'JSON'
+  cat > "$MCP_FILE" <<JSON
 {
   "mcpServers": {
     "ledgermem": {
       "command": "npx",
       "args": ["-y", "@ledgermem/mcp-server"],
       "env": {
-        "LEDGERMEM_API_KEY": "${env:LEDGERMEM_API_KEY}",
-        "LEDGERMEM_WORKSPACE_ID": "${env:LEDGERMEM_WORKSPACE_ID}"
+        "LEDGERMEM_API_KEY": $API_KEY_JSON,
+        "LEDGERMEM_WORKSPACE_ID": $WS_JSON
       }
     }
   }
 }
 JSON
-  echo "✓ created $MCP_FILE"
+  chmod 600 "$MCP_FILE"
+  echo "✓ created $MCP_FILE (mode 600)"
 else
-  if grep -q '"ledgermem"' "$MCP_FILE"; then
+  # Match the literal key "ledgermem" with surrounding punctuation so we don't
+  # false-positive on substrings inside other server names.
+  if grep -Eq '"ledgermem"[[:space:]]*:' "$MCP_FILE"; then
     echo "skip   ledgermem entry already present in $MCP_FILE"
   else
     echo "warn   $MCP_FILE exists. Add this manually under \"mcpServers\":"
-    cat <<'JSON'
+    cat <<JSON
     "ledgermem": {
       "command": "npx",
       "args": ["-y", "@ledgermem/mcp-server"],
       "env": {
-        "LEDGERMEM_API_KEY": "${env:LEDGERMEM_API_KEY}",
-        "LEDGERMEM_WORKSPACE_ID": "${env:LEDGERMEM_WORKSPACE_ID}"
+        "LEDGERMEM_API_KEY": $API_KEY_JSON,
+        "LEDGERMEM_WORKSPACE_ID": $WS_JSON
       }
     }
 JSON
   fi
-fi
-
-# Step 3 — env var hint
-if [[ -z "${LEDGERMEM_API_KEY:-}" ]]; then
-  echo
-  echo "Next: set your credentials"
-  echo "  export LEDGERMEM_API_KEY=lm_live_..."
-  echo "  export LEDGERMEM_WORKSPACE_ID=ws_..."
 fi
 
 echo
