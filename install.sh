@@ -5,6 +5,24 @@ set -euo pipefail
 REPO="ledgermem/ledgermem-cursor-rules"
 RAW="https://raw.githubusercontent.com/$REPO/main"
 
+# Cursor's MCP entry shells out to `npx` at startup. If npx is not on PATH the
+# server silently fails to register and the user sees "no tools available" with
+# no clue why. Catch that here so the failure mode is loud and actionable.
+if ! command -v npx >/dev/null 2>&1; then
+  echo "error: npx is required but not found on PATH."
+  echo "       Install Node.js 18+ (https://nodejs.org) or activate your version manager"
+  echo "       (nvm, fnm, volta, asdf) and re-run this script."
+  exit 1
+fi
+if ! command -v curl >/dev/null 2>&1; then
+  echo "error: curl is required but not found on PATH."
+  exit 1
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "error: python3 is required (used to safely JSON-encode secrets)."
+  exit 1
+fi
+
 # Step 1 — drop the rules file into the project
 mkdir -p .cursor/rules
 curl -fsSL -o .cursor/rules/ledgermem.mdc "$RAW/.cursor/rules/ledgermem.mdc"

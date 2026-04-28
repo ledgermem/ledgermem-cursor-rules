@@ -1,6 +1,14 @@
 ---
 description: LedgerMem — long-term memory rules for Cursor agents.
-globs: ["**/*"]
+# Restrict the glob to source-y files. The previous `["**/*"]` also matched
+# lockfiles, build artefacts, binary assets, and generated code, which made
+# the rule fire on every file Cursor indexed and contributed to rule
+# precedence collisions with project-local rules.
+globs:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
+  - "**/*.{py,rb,go,rs,kt,java,swift,php,cs}"
+  - "**/*.{md,mdx,txt}"
+  - "**/*.{yml,yaml,toml,json}"
 alwaysApply: true
 ---
 
