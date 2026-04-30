@@ -56,7 +56,7 @@ if [[ ! -f "$MCP_FILE" ]]; then
   "mcpServers": {
     "getmnemo": {
       "command": "npx",
-      "args": ["-y", "@getmnemo/mcp-server"],
+      "args": ["-y", "@mnemo/mcp-server"],
       "env": {
         "GETMNEMO_API_KEY": $API_KEY_JSON,
         "GETMNEMO_WORKSPACE_ID": $WS_JSON
@@ -77,7 +77,7 @@ else
     cat <<JSON
     "getmnemo": {
       "command": "npx",
-      "args": ["-y", "@getmnemo/mcp-server"],
+      "args": ["-y", "@mnemo/mcp-server"],
       "env": {
         "GETMNEMO_API_KEY": $API_KEY_JSON,
         "GETMNEMO_WORKSPACE_ID": $WS_JSON
